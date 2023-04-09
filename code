@@ -1,168 +1,126 @@
-#include <AFMotor.h>  
-#include <NewPing.h>
-#include <Servo.h> 
+//The place where Arduino is my front
+//UltrasonicSensor
+const int trigPin=13;
+const int echoPin=12;
+//MotorA Left motor
+int enableA=8;
+const int motorPin1=3;//Input1 of motordriver
+const int motorPin2=5;//Input2 of motordriver
+//MotorB Right motor
+int enableB=9;
+const int motorPin3=4;//Input3 of motordriver
+const int motorPin4=2;//Input4 of motordriver
+//Slideswitch
+const int slideSwitch=7;
 
-#define TRIG_PIN A0 
-#define ECHO_PIN A1 
-#define MAX_DISTANCE 200 
-#define MAX_SPEED 190 // sets speed of DC  motors
-#define MAX_SPEED_OFFSET 20
+int duration;
+int distance;
 
-NewPing sonar(TRIG_PIN, ECHO_PIN, MAX_DISTANCE); 
-
-AF_DCMotor motor1(1, MOTOR12_1KHZ); 
-AF_DCMotor motor2(2, MOTOR12_1KHZ);
-AF_DCMotor motor3(3, MOTOR34_1KHZ);
-AF_DCMotor motor4(4, MOTOR34_1KHZ);
-Servo myservo;   
-
-boolean goesForward=false;
-int distance = 100;
-int speedSet = 0;
-
-void setup() {
-
-  myservo.attach(10);  
-  myservo.write(115); 
-  delay(2000);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
-  distance = readPing();
-  delay(100);
-}
-
-void loop() {
- int distanceR = 0;
- int distanceL =  0;
- delay(40);
- 
- if(distance<=15)
- {
-  moveStop();
-  delay(100);
-  moveBackward();
-  delay(300);
-  moveStop();
-  delay(200);
-  distanceR = lookRight();
-  delay(200);
-  distanceL = lookLeft();
-  delay(200);
-
-  if(distanceR>=distanceL)
-  {
-    turnRight();
-    moveStop();
-  }else
-  {
-    turnLeft();
-    moveStop();
-  }
- }else
- {
-  moveForward();
- }
- distance = readPing();
-}
-
-int lookRight()
+void setup()
 {
-    myservo.write(50); 
-    delay(500);
-    int distance = readPing();
-    delay(100);
-    myservo.write(115); 
-    return distance;
+  //Declaring the enable Pins as OUTPUT
+  pinMode(enableA,OUTPUT);
+  pinMode(enableB,OUTPUT);
+  //Declaring the Pins of the 1st Motor
+  pinMode(motorPin1,OUTPUT);
+  pinMode(motorPin2,OUTPUT);
+  //Declaring the Pins of the 1st Motor
+  pinMode(motorPin3,OUTPUT);
+  pinMode(motorPin4,OUTPUT);
+  //Declaring the trig Pin(which sends out the echo)
+  pinMode(trigPin,OUTPUT);
+  //Declaring the echo Pin(which recieves the echo)
+  pinMode(echoPin,INPUT);
+  pinMode(slideSwitch,INPUT_PULLUP);
+  // set speed to 200 out of possible range 0~255
+  analogWrite(enableA, 200);
+  // set speed to 200 out of possible range 0~255
+  analogWrite(enableB, 200); 
+  Serial.begin(9600);
 }
 
-int lookLeft()
+void loop()
 {
-    myservo.write(170); 
-    delay(500);
-    int distance = readPing();
-    delay(100);
-    myservo.write(115); 
-    return distance;
-    delay(100);
-}
-
-int readPing() { 
-  delay(70);
-  int cm = sonar.ping_cm();
-  if(cm==0)
-  {
-    cm = 250;
+  //The robot will move only when the slide switch is switched On
+  if(digitalRead(slideSwitch) == LOW){
+    findDistance();
+    //If the object is within 10 cm
+    if(distance<=10){
+      //The robot will stop for a while
+      rightMotor(0);
+      leftMotor(0);
+      delay(200);
+      //The robot will move backward
+      rightMotor(-255);
+      leftMotor(-255);
+      delay(300);
+      //The robot will turn towards the right
+      rightMotor(255);
+      leftMotor(-255);
+      delay(200);   
+    }
+    else{
+      //The robot will move forwards
+      rightMotor(255);
+      leftMotor(255);     
+    }  
   }
-  return cm;
+  //Since the Slide Switch is off, the robot will not move
+  else{
+    rightMotor(0);
+    leftMotor(0);
+  }
+      
 }
-
-void moveStop() {
-  motor1.run(RELEASE); 
-  motor2.run(RELEASE);
-  motor3.run(RELEASE);
-  motor4.run(RELEASE);
-  } 
+void rightMotor(int speed)
+{
+  analogWrite(enableB,speed);
+  if(speed>0){
+    //If the speed is positive, the current will flow from Pin3 to Pin4
+    //Thus the motor will move forwards
+    digitalWrite(motorPin3,HIGH);
+    digitalWrite(motorPin4,LOW);
+  }
+  else if(speed<0){
+    //If the speed is negative, the current will flow from Pin4 to Pin3
+    //Thus the motor will move backwards
+    digitalWrite(motorPin3,LOW);
+    digitalWrite(motorPin4,HIGH);    
+  }
+  else{
+    digitalWrite(motorPin3,LOW);
+    digitalWrite(motorPin4,LOW);
+  }
+}
+void leftMotor(int speed)
+{
+  analogWrite(enableA,speed);
+  if(speed>0){
+    //If the speed is positive, the current will flow from Pin1 to Pin2
+    //Thus the motor will move forwards
+    digitalWrite(motorPin1,HIGH);
+    digitalWrite(motorPin2,LOW);
+  }
+  else if(speed<0){
+    //If the speed is negative, the current will flow from Pin2 to Pin1
+    //Thus the motor will move backwards
+    digitalWrite(motorPin1,LOW);
+    digitalWrite(motorPin2,HIGH);    
+  }
+  else{
+    digitalWrite(motorPin1,LOW);
+    digitalWrite(motorPin2,LOW);
+  }
+}
+      
+void findDistance(){
+  digitalWrite(trigPin,LOW);
+  delayMicroseconds(2);
   
-void moveForward() {
-
- if(!goesForward)
-  {
-    goesForward=true;
-    motor1.run(FORWARD);      
-    motor2.run(FORWARD);
-    motor3.run(FORWARD); 
-    motor4.run(FORWARD);     
-   for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2) // slowly bring the speed up to avoid loading down the batteries too quickly
-   {
-    motor1.setSpeed(speedSet);
-    motor2.setSpeed(speedSet);
-    motor3.setSpeed(speedSet);
-    motor4.setSpeed(speedSet);
-    delay(5);
-   }
-  }
-}
-
-void moveBackward() {
-    goesForward=false;
-    motor1.run(BACKWARD);      
-    motor2.run(BACKWARD);
-    motor3.run(BACKWARD);
-    motor4.run(BACKWARD);  
-  for (speedSet = 0; speedSet < MAX_SPEED; speedSet +=2) // slowly bring the speed up to avoid loading down the batteries too quickly
-  {
-    motor1.setSpeed(speedSet);
-    motor2.setSpeed(speedSet);
-    motor3.setSpeed(speedSet);
-    motor4.setSpeed(speedSet);
-    delay(5);
-  }
-}  
-
-void turnRight() {
-  motor1.run(FORWARD);
-  motor2.run(FORWARD);
-  motor3.run(BACKWARD);
-  motor4.run(BACKWARD);     
-  delay(500);
-  motor1.run(FORWARD);      
-  motor2.run(FORWARD);
-  motor3.run(FORWARD);
-  motor4.run(FORWARD);      
-} 
- 
-void turnLeft() {
-  motor1.run(BACKWARD);     
-  motor2.run(BACKWARD);  
-  motor3.run(FORWARD);
-  motor4.run(FORWARD);   
-  delay(500);
-  motor1.run(FORWARD);     
-  motor2.run(FORWARD);
-  motor3.run(FORWARD);
-  motor4.run(FORWARD);
+  digitalWrite(trigPin,HIGH);
+  delayMicroseconds(10);
+  
+  duration=pulseIn(echoPin,HIGH);
+  distance=duration*0.0345/2;
+  Serial.println(distance);  
 }
